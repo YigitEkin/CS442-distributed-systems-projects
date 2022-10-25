@@ -1,7 +1,7 @@
 import channel, stablelog, random #-
 from const2PC import * #-
 
-class Participant:
+class Student:
   def __init__(self): #-
     print("I AM EXISTING AS OF NOW")
     self.chan        = channel.Channel() #-
