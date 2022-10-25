@@ -10,7 +10,7 @@ chan.channel.flushall()
 
 NP = 1
 prof = professor.Professor()
-stds = [student.Student() for i in range(NP)]
+stds = student.Student()
 
 pid = os.fork()
 if pid == 0:
@@ -20,7 +20,7 @@ if pid == 0:
 for i in range(NP):
     pid = os.fork()
     if pid == 0:
-        stds[i].run()
+        stds.run()
         os._exit(0)
 
 
