@@ -1,4 +1,4 @@
-INFO  = 'SEND YOUR GROUP INFO'
+INFO  = 'HELLO THERE CHILDREN'
 DENY = 'DENIED'
 WARN  = 'Some of you did not send the group info, send immediately!'
 GROUP_INFO = 'I am group'

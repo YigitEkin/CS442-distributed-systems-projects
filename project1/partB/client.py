@@ -8,7 +8,7 @@ import student
 chan = channel.Channel()
 chan.channel.flushall()
 
-NP = 3
+NP = 1
 prof = professor.Professor()
 stds = [student.Student() for i in range(NP)]
 
