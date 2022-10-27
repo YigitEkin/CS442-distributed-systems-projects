@@ -1,26 +1,21 @@
-from subprocess import Popen, PIPE
-import professor
-
-import os
+import sys,os,time
 import channel
-import student
+import process
 
+n = 3
 chan = channel.Channel()
+std_chan = channel.Channel()
 chan.channel.flushall()
+std_chan.channel.flushall()
 
-NP = 1
-prof = professor.Professor()
-stds = student.Student()
+procs  = [process.Process(chan, n, std_chan) for i in range(n)]
 
-pid = os.fork()
-if pid == 0:
-    prof.run()
-    os._exit(0)
+for i in range(n):
+	pid = os.fork()
+	if pid == 0:
+		procs[i].run()
+		os._exit(0)
+	time.sleep(0.25)
 
-for i in range(NP):
-    pid = os.fork()
-    if pid == 0:
-        stds.run()
-        os._exit(0)
-
+os._exit(0)
 

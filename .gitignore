@@ -1,2 +1,3 @@
 project1/partB/venv
 *.pyc
+*__pycache__*

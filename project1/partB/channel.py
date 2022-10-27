@@ -52,8 +52,8 @@ class Channel():
 		caller = self.osmembers[os.getpid()]
 		assert self.channel.sismember('members', str(caller)), ''
 		for i in destinationSet: 
-			assert self.channel.sismember('members', str(i)), ''
-			self.channel.rpush([str(caller),str(i)], pickle.dumps(message) )
+			assert self.channel.sismember('members', str(int(i))), ''
+			self.channel.rpush(str(caller) + " " + str(int(i)), pickle.dumps(message.encode("utf-8")) )
 
 	def sendToAll(self, message):
 		caller = self.osmembers[os.getpid()]
@@ -74,11 +74,12 @@ class Channel():
 		caller = self.osmembers[os.getpid()]
 		assert self.channel.sismember('members', str(caller)), ''
 		for i in senderSet: 
-			assert self.channel.sismember('members', str(i)), ''
-		xchan = [[str(i),str(caller)] for i in senderSet]
-		msg = self.channel.blpop(xchan, timeout)
+			assert self.channel.sismember('members', str(int(i))), ''
+		xchan = [[str(int(i)),str(caller)] for i in senderSet]
+		mes = xchan[0][0] + " " + xchan[0][1]
+		msg = self.channel.blpop(mes, timeout)
 		if msg:
-			return [msg[0].split("'")[1],pickle.loads(msg[1])]
+			return [str(msg[0]).split(" ")[1],pickle.loads(msg[1])]
 
 
 
