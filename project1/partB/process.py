@@ -21,10 +21,10 @@ class Process:
         prof =self.chan.subgroup('prof')
         student = self.chan.subgroup('student')
     
-        self.chan.sendTo(prof, str("Hello " + names[int(str(self.prof).encode('utf-8'))]))
-        self.std_chan.sendTo(student, str("Hello there students"))
+        self.chan.sendTo(prof, str("Hello Professor " + names[int(str(self.prof).encode('utf-8'))]))
+        self.std_chan.sendTo(student, str("Top of the morning mate"))
 
-        print("I am", self.prof, "  I recieved: ",self.chan.recvFrom(prof, 1))
-        print("I am", self.student, "  I recieved: ",self.std_chan.recvFrom(student, 1))
+        print("I am", self.prof, "  I recieved: ",self.chan.recvFrom(prof, 1)[1].decode('utf-8'))
+        print("I am", self.student, "  I recieved: ",self.std_chan.recvFrom(student, 1)[1].decode('utf-8'))
 
 
