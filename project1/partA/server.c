@@ -1,86 +1,115 @@
+#include "stat.h"
+#include "stdio.h"
 #include <math.h>
 #include <rpc/rpc.h>
-#include "stat.h"
 
-double average_1(int **arr, int *size)
-{
-    static double sum = 0;
+static double varianceResult;
+static double averageResult;
+static double stddevResult;
+static double maximumResult;
+static double minimumResult;
 
-    for (int i = 0; i < (*size); ++i)
-    {
-        sum += *arr[i];
+double * variance_1_svc(data *dp, struct svc_req *rq){
+    int sum = 0;
+    int sum1 = 0;
+    int len = 0;
+    int avg = 0;
+    int *p;
+
+    p = dp-> data.data_val;
+    len = dp-> data.data_len;
+
+    for(int i = 0; i < len; i++){
+        sum = sum + p[i];
     }
 
-    return sum / (*size);
+    avg = sum / (float) len;
+
+    for(int i = 0; i < len; i++){
+        sum1 = sum1 + pow((p[i] - avg), 2);
+    }
+
+    varianceResult = sum1 / (float)len;
+    return (&varianceResult);
 }
 
-int minimum_2(int **arr, int *size)
-{
-    static int min = 2147483647;
+double * average_1_svc(data *dp, struct svc_req *rq){
+    int sum = 0;
+    int len = 0;
+    int *p;
 
-    for (int i = 0; i < (*size); ++i)
-    {
-        if (min > *arr[i])
-        {
-            min = *arr[i];
+    p = dp-> data.data_val;
+    len = dp-> data.data_len;
+
+    for(int i = 0; i < len; i++){
+        sum = sum + p[i];
+    }
+
+    averageResult = sum / (float) len;
+
+    return (&averageResult);
+}
+
+double * stddev_1_svc(data *dp, struct svc_req *rq){
+    int sum = 0;
+    int sum1 = 0;
+    int len = 0;
+    int avg = 0;
+    int var = 0;
+    int *p;
+
+    p = dp-> data.data_val;
+    len = dp-> data.data_len;
+
+    for(int i = 0; i < len; i++){
+        sum = sum + p[i];
+    }
+
+    avg = sum / (float) len;
+
+    for(int i = 0; i < len; i++){
+        sum1 = sum1 + pow((p[i] - avg), 2);
+    }
+
+    var = sum1 / (float)len;
+    stddevResult = sqrt(var);
+    return (&stddevResult);
+}
+
+double * maximum_1_svc(data *dp, struct svc_req *rq){
+    int max;
+    int len = 0;
+    int *p;
+
+    p = dp->data.data_val;
+    len =  dp->data.data_len;
+
+    max = p[0];
+    for(int i = 0; i < len; i++){
+        if(max < p[i]){
+            max = p[i];
         }
     }
 
-    return min;
+    maximumResult = max;
+    return (&maximumResult);
 }
 
-int maximum_3(int **arr, int *size)
-{
-    static int max = -1;
+double * minimum_1_svc(data *dp, struct svc_req *rq){
+    int min;
+    int len = 0;
+    int *p;
 
-    for (int i = 0; i < (*size); ++i)
-    {
-        if (max < *arr[i])
-        {
-            max = *arr[i];
+    p = dp->data.data_val;
+    len =  dp->data.data_len;
+
+    min = p[0];
+    for(int i = 0; i < len; i++){
+        if(min > p[i]){
+            min = p[i];
         }
     }
 
-    return max;
-}
-
-double stddev_4(int **arr, int *size)
-{
-    double sum_mean = 0;
-
-    for (int i = 0; i < (*size); ++i)
-    {
-        sum_mean += *arr[i];
-    }
-
-    double mean = sum_mean / (*size);
-    double sum = 0;
-
-    for (int i = 0; i < (*size); ++i)
-    {
-        sum += pow(*arr[i] - mean, 2);
-    }
-
-    static double res = 0;
-    res = sqrt(sum / (*size));
-    return res;
-}
-
-double variance_5(int **arr, int *size)
-{
-    double sum_mean = 0;
-
-    for (int i = 0; i < (*size); ++i)
-    {
-        sum_mean += *arr[i];
-    }
-
-    static double sum = 0;
-    double mean = sum / (*size);
-    for (int i = 0; i < (*size); ++i)
-    {
-        sum += pow(*arr[i] - mean, 2);
-    }
-
-    return sum / (*size);
+    minimumResult = min;
+    return (&minimumResult);
 }

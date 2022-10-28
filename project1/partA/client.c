@@ -1,100 +1,84 @@
-#include <rpc/rpc.h>
 #include "stat.h"
-#include <stdio.h>
-#include <stdlib.h>
+#include "stdio.h"
+#include <rpc/rpc.h>
 
-int number;
-int r;
+double res;
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]){
     char *host;
     CLIENT *clnt;
-    int *resp;
+    double *resp;
     data d;
     int datalen;
-    int *ip;
-    int x;
-    int i;
+    int *arr;
 
-    if (argc < 3)
-    {
-        printf("Invalid number of arguments");
+    if(argc < 3){
+        printf("not enough arguments");
         exit(1);
     }
 
-    if (argc > MAXDATALEN + 2)
-    {
-        printf("Too many input values\n");
+    if(argc > MAXDATALEN + 2){
+        printf("Input array exceeds maximum length of 200");
         exit(1);
     }
 
+    datalen = argc - 2;
+
+    // allocating the array, getting the pointer
+    d.data.data_val = (int *)malloc((datalen)*sizeof(int));
+    arr = d.data.data_val;
+    d.data.data_len = datalen;
     host = argv[1];
 
-    d.data = (int *)malloc(MAXDATALEN * sizeof(int));
-    datalen = (argc - 2);
 
-    for (i = 0; i < datalen; ++i)
-    {
-        x = atoi(argv[i + 2]);
-        d.data[i] = x;
+    // copying the array from arguments into the array pointer
+    for(int i = 0; i < datalen; i++){
+        arr[i] = atoi(argv[i+2]);
     }
 
-    clnt = clnt_create(host, SAMPLEPROG,
-                       SAMPLEVERS, "tcp");
-
-    if (clnt == NULL)
-    {
+    // creating the client
+    clnt = clnt_create(host, STATPROG, VERSIONS, "tcp");
+    if (clnt == NULL) {
         clnt_pcreateerror(host);
         exit(1);
     }
-    printf("connected to the server\n");
 
-    resp = average_1(&d.data, &datalen, clnt); // calling the remote procedure
-    if (resp == (int *)NULL)
-    {
-        clnt_perror(clnt, "call failed");
+    // calculating the average
+    resp = average_1(&d, clnt);
+    if(resp == NULL){
+        clnt_perror (clnt, "call failed");
     }
-    r = *resp;
-    printf("average: %d\n", r);
+    printf("average: %.2f\n", *resp);
 
-    resp = variance_5(&d, &datalen, clnt); // calling the remote procedure
-    if (resp == (int *)NULL)
-    {
-        clnt_perror(clnt, "call failed");
+    // calculating the variance
+    resp = variance_1(&d, clnt);
+    if(resp == NULL){
+        clnt_perror (clnt, "call failed");
     }
-    r = *resp;
+    printf("variance: %.2f\n", *resp);
 
-    printf("variance: %d\n", r);
-
-    resp = stddev_4(&d, &datalen, clnt); // calling the remote procedure
-    if (resp == (int *)NULL)
-    {
-        clnt_perror(clnt, "call failed");
+    // calculating the stddev
+    resp = stddev_1(&d, clnt);
+    if(resp == NULL){
+        clnt_perror (clnt, "call failed");
     }
-    r = *resp;
+    printf("stddev: %.2f\n", *resp);
 
-    printf("stddev: %d\n", r);
-
-    resp = minimum_2(&d, &datalen, clnt); // calling the remote procedure
-    if (resp == (int *)NULL)
-    {
-        clnt_perror(clnt, "call failed");
+    // calculating the min
+    resp = minimum_1(&d, clnt);
+    if(resp == NULL){
+        clnt_perror (clnt, "call failed");
     }
-    r = *resp;
+    printf("min: %.2f\n", *resp);
 
-    printf("minimum: %d\n", r);
-
-    resp = maximum_3(&d, &datalen, clnt); // calling the remote procedure
-    if (resp == (int *)NULL)
-    {
-        clnt_perror(clnt, "call failed");
+    // calculating the max
+    resp = maximum_1(&d, clnt);
+    if(resp == NULL){
+        clnt_perror (clnt, "call failed");
     }
-    r = *resp;
-
-    printf("maximum: %d\n", r);
+    printf("max: %.2f\n", *resp);
 
     clnt_destroy(clnt);
-
-    return (1);
+    free(d.data.data_val);
+    return 1;
 }
