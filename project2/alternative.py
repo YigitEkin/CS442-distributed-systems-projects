@@ -16,40 +16,40 @@ def sendToken(logFile, rightNode, pending_request, using):
     using = False
     if(pending_request):
         tmp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        tmp.connect(('localhost', rightNode))
         tmp.sendto(TOKEN.encode(), ("127.0.0.1", rightNode))
         pending_request = False
+        
         
 def sendRequest(logFile, leftNode):
     logFile.write("Sending request to " + str(leftNode) + "\n")
     tmp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    tmp.connect(('localhost', leftNode))
     tmp.sendto(REQUEST.encode(), ("127.0.0.1", leftNode))
     print("Sent request to " + str(leftNode))
-    tmp.close()
-   
+    
+    
+
 def recieve(sock, maxTime, dataFile, delta, totalCnt, logFile, rightNode, leftNode, hungry, using, asked, pending_request):
     logFile.write("Waiting for data\n")
     data = sock.recvfrom(1024)
     logFile.write("Received raw data: " + str(data) + "\n")
     data = data[0].decode()
     logFile.write("Received data: " + str(data) + "\n")
-    if(data == REQUEST):
+    if(str(data) == TOKEN):
         logFile.write("Received token from " + str(leftNode) + "\n")
         using = True
         sendToken(logFile, rightNode, pending_request, using)
-    elif(data == TOKEN):
+    elif(str(data) == REQUEST):
         hungry = True
         if(asked==False):
             sendRequest(logFile, leftNode)
             asked = True
        
         logFile.write("Received request from " + str(rightNode) + "\n")
-        if(data == 0 and using == False):
+        if(str(data) == REQUEST and using == False):
             sendToken(logFile, rightNode, pending_request, using)
         else:
             pending_request = True
-            if(asked == False and data == 1):
+            if(asked == False and str(data) == TOKEN):
                 sendRequest(logFile, leftNode)
                 asked = True 
     else:
@@ -83,10 +83,13 @@ def run(sock, maxTime, dataFile, delta, totalCnt, logFileName, rightNode, leftNo
         counter = counter + 1
         print("Counter: " + str(counter))
         if(counter >= totalCnt):
-            print("Closing")
+            print("Closing socket", sock)
             sockInstance.close()
+            print("Socket closed")
             logFile.close()
+            print("Log file closed")
             dataFile.close()
+            print("Data file closed")
             break
 
 
