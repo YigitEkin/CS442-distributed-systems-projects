@@ -1,5 +1,7 @@
 import sys
 import os
+import time
+import random
 import socket
 from multiprocessing import Process
 
@@ -11,7 +13,7 @@ REQUEST = "0"
 nodeArray = []
 socketArray = []
 
-def sendToken(logFile, rightNode, pending_request):
+def sendToken(rightNode, pending_request):
     if(pending_request):
         tmp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         tmp.sendto(TOKEN.encode(), ("127.0.0.1", rightNode))
@@ -21,7 +23,7 @@ def sendRequest(leftNode):
     tmp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     tmp.sendto(REQUEST.encode(), ("127.0.0.1", leftNode))
 
-def recieve(sock, maxTime, dataFile, delta, totalCnt, logFile, rightNode, leftNode, hungry, using, asked, pending_request, holder):
+def recieve(sock, maxTime, dataFile, delta, totalCnt, logFile, rightNode, leftNode, hungry, using, asked, pending_request, holder, index, initialTime):
     
     # If dataFile line 2 is more than or equal to totalCnt, close the socket and exit
     tmpCheck = open(dataFile, "r")
@@ -33,19 +35,26 @@ def recieve(sock, maxTime, dataFile, delta, totalCnt, logFile, rightNode, leftNo
         return
     if hungry:
         if(holder):
-            asked = False
             using = True
-            hungry = False
-            # Access the critical section
+            # Data arrangement
             data[0] = int(data[0]) + delta
             data[1] = int(data[1]) + 1
+            # Access the critical section
+            # Log file
+            logFile = open(logFile, "a")
+            # Time in microseconds
+            lctime = int(round(time.time() * 1000000)) - initialTime
+            logFile.write("t=" + str(lctime) + ", pid=" + str(index) + ", os-pid=" + str(os.getpid()) + ", new="+ str(data[0])  + ", totalcount=" + str(totalCnt) + ", count=" + str(data[1]) + "\n")
             data = str(data[0]) + "\n" + str(data[1])
+            # Data file
             dataFile = open(dataFile, "w")
             dataFile.write(str(data))
             dataFile.close()
+            logFile.close()
+            # Release the critical section
+            using = False
             if pending_request:
-                using = False
-                sendToken(logFile, rightNode, pending_request)
+                sendToken(rightNode, pending_request)
                 pending_request=False
                 holder = False
         else:
@@ -59,7 +68,7 @@ def recieve(sock, maxTime, dataFile, delta, totalCnt, logFile, rightNode, leftNo
 
     if(str(msg) == REQUEST):
         if holder and not using:
-            sendToken(logFile, rightNode, pending_request)
+            sendToken(rightNode, pending_request)
             holder = False
         else:
             pending_request = True
@@ -71,35 +80,39 @@ def recieve(sock, maxTime, dataFile, delta, totalCnt, logFile, rightNode, leftNo
         if hungry:
             using = True
             hungry = False
-            # Access the critical section
-            asked = False
-            using = True
-            hungry = False
-            # Access the critical section
+            
+            # Data arrangement
             data[0] = int(data[0]) + delta
             data[1] = int(data[1]) + 1
+            
+            # Access the critical section
+            # Log file
+            logFile = open(logFile, "a")
+            # Time in microseconds
+            lctime = int(round(time.time() * 1000000)) - initialTime
+            logFile.write("t=" + str(lctime) + ", pid=" + str(index) + ", os-pid=" + str(os.getpid()) + ", new="+ str(data[0]) + ", totalcount=" + str(totalCnt) + ", count=" + str(data[1]) + "\n")
             data = str(data[0]) + "\n" + str(data[1])
+            # Data file
             dataFile = open(dataFile, "w")
             dataFile.write(str(data))
             dataFile.close()
+            logFile.close()
+            # Release the critical section
+            using = False
             if pending_request:
-                using = False
-                sendToken(logFile, rightNode, pending_request)
+                sendToken(rightNode, pending_request)
                 pending_request=False
                 holder = False
 
 # Socket Executable
-def run(sock, maxTime, dataFile, delta, totalCnt, logFileName, rightNode, leftNode, hungry, using, asked, pending_request, holder):
-    logFile = open(logFileName, "a")
-    logFile.write("Listening on port " + str(sock) + "\n")
-    logFile.write("Max time " + str(maxTime) + "\n")
-    logFile.write("Log file " + str(logFileName) + "\n")
-    counter = 0
+def run(sock, maxTime, dataFile, delta, totalCnt, logFileName, leftNode, rightNode, hungry, using, asked, pending_request, holder, index, initialTime):
+
     sockInstance = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sockInstance.bind(('localhost', sock))
     while True:
-        recieve(sockInstance, maxTime, dataFile, delta, totalCnt, logFile, rightNode, leftNode, hungry, using, asked, pending_request, holder)
-        counter = counter + 1
+        # Waiting for a random time in microseconds
+        time.sleep(random.uniform(0, maxTime)/1000000.0)
+        recieve(sockInstance, maxTime, dataFile, delta, totalCnt, logFileName, leftNode, rightNode, hungry, using, asked, pending_request, holder, index, initialTime)
         
         tmpCheck = open(dataFile, "r")
         data = tmpCheck.readlines()
@@ -111,12 +124,10 @@ def run(sock, maxTime, dataFile, delta, totalCnt, logFileName, rightNode, leftNo
 
 # Main Executable
 def main():
-
     # Check for correct number of command line arguments
     if len(sys.argv) != 7:
         print("Usage: python token.py <NP> <DATAFILE> <DELTA> <TOTCOUNT> <LOGFILE> <MAXTIME>")
         sys.exit(1)
-
     # Get the input file name
     numOfProcess = int(sys.argv[1])
     if (numOfProcess < 2 or numOfProcess > 20):
@@ -135,7 +146,6 @@ def main():
     logFileName = sys.argv[5]
     # Get max time
     maxTime = int(sys.argv[6])
-
     # Initialize the log file
     logFile = open(logFileName, "w")
     # Clear the log file
@@ -145,6 +155,8 @@ def main():
     dataFile = open(inputFileName, "w")
     dataFile.write("0\n0")
     dataFile.close()
+    # Initial time in microseconds
+    initialTime = int(round(time.time() * 1000000))
     # Create TCP/IP sockets
     for i in range(0, numOfProcess):
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -155,12 +167,15 @@ def main():
         socketArray.append(server_address[1])
     # Create processes
     for i in range(0, numOfProcess):
-        if(i==0):
-            nodeArray.append(Process(target=run, args=(socketArray[i], maxTime, inputFileName, delta, exitCount, logFileName, socketArray[i+1],socketArray[numOfProcess - 1], True, True, False, True, True)))
-        elif(i==numOfProcess-1):
-            nodeArray.append(Process(target=run, args=(socketArray[i], maxTime, inputFileName, delta, exitCount, logFileName, socketArray[0], socketArray[i - 1], True, False, False, False, False)))
+        if(i == 0):
+            nodeArray.append(Process(target=run, args=(socketArray[i], maxTime, inputFileName, delta, exitCount, logFileName, socketArray[numOfProcess - 1],socketArray[1], True, True, False, True, True, i, initialTime)))
+            print("i =",i)
+        elif(i == numOfProcess - 1):
+            nodeArray.append(Process(target=run, args=(socketArray[i], maxTime, inputFileName, delta, exitCount, logFileName, socketArray[numOfProcess - 2], socketArray[0], True, False, False, False, False, i, initialTime)))
+            print("i =",i)
         else:
-            nodeArray.append(Process(target=run, args=(socketArray[i], maxTime, inputFileName, delta, exitCount, logFileName, socketArray[i+1], socketArray[i - 1], True, False, False, False, False)))
+            nodeArray.append(Process(target=run, args=(socketArray[i], maxTime, inputFileName, delta, exitCount, logFileName, socketArray[i - 1], socketArray[i + 1], True, False, False, False, False, i, initialTime)))
+            print("i =",i)
     # Start all processes
     for i in range(0, len(nodeArray)):
         nodeArray[i].start()
