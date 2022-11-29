@@ -8,97 +8,113 @@ from multiprocessing import Process
 TOKEN = "1"
 REQUEST = "0"
 
+nodeArray = []
+socketArray = []
 
-# Socket Helper Functions
-
-def sendToken(logFile, rightNode, pending_request, using):
-    logFile.write("Sending token to " + str(rightNode) + "\n")
-    using = False
+def sendToken(logFile, rightNode, pending_request):
     if(pending_request):
         tmp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         tmp.sendto(TOKEN.encode(), ("127.0.0.1", rightNode))
         pending_request = False
-        
-        
-def sendRequest(logFile, leftNode):
-    logFile.write("Sending request to " + str(leftNode) + "\n")
+                
+def sendRequest(leftNode):
     tmp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     tmp.sendto(REQUEST.encode(), ("127.0.0.1", leftNode))
-    print("Sent request to " + str(leftNode))
-    
-    
 
-def recieve(sock, maxTime, dataFile, delta, totalCnt, logFile, rightNode, leftNode, hungry, using, asked, pending_request):
-    logFile.write("Waiting for data\n")
-    data = sock.recvfrom(1024)
-    logFile.write("Received raw data: " + str(data) + "\n")
-    data = data[0].decode()
-    logFile.write("Received data: " + str(data) + "\n")
-    if(str(data) == TOKEN):
-        logFile.write("Received token from " + str(leftNode) + "\n")
-        using = True
-        sendToken(logFile, rightNode, pending_request, using)
-    elif(str(data) == REQUEST):
-        hungry = True
-        if(asked==False):
-            sendRequest(logFile, leftNode)
-            asked = True
-       
-        logFile.write("Received request from " + str(rightNode) + "\n")
-        if(str(data) == REQUEST and using == False):
-            sendToken(logFile, rightNode, pending_request, using)
-        else:
-            pending_request = True
-            if(asked == False and str(data) == TOKEN):
-                sendRequest(logFile, leftNode)
-                asked = True 
-    else:
-        asked = False
-        if(hungry==True):
+def recieve(sock, maxTime, dataFile, delta, totalCnt, logFile, rightNode, leftNode, hungry, using, asked, pending_request, holder):
+    
+    # If dataFile line 2 is more than or equal to totalCnt, close the socket and exit
+    tmpCheck = open(dataFile, "r")
+    data = tmpCheck.readlines()
+    print("data: ",data)
+    tmpCheck.close()
+    if int(data[1]) >= totalCnt:
+        sock.close()
+        return
+    if hungry:
+        if(holder):
+            asked = False
             using = True
             hungry = False
+            # Access the critical section
+            data[0] = int(data[0]) + delta
+            data[1] = int(data[1]) + 1
+            data = str(data[0]) + "\n" + str(data[1])
+            dataFile = open(dataFile, "w")
+            dataFile.write(str(data))
+            dataFile.close()
+            if pending_request:
+                using = False
+                sendToken(logFile, rightNode, pending_request)
+                pending_request=False
+                holder = False
         else:
-            sendToken(logFile, rightNode, pending_request, using)
-            pending_request=False
+            hungry = True
+            if not asked:
+                sendRequest(leftNode)
+                asked = True
+
+    msg = sock.recvfrom(1024)
+    msg = msg[0].decode()
+
+    if(str(msg) == REQUEST):
+        if holder and not using:
+            sendToken(logFile, rightNode, pending_request)
+            holder = False
+        else:
+            pending_request = True
+            if not holder and not asked:
+                sendRequest(leftNode)
+                asked = True      
+    elif(str(msg) == TOKEN):
+        asked = False
+        if hungry:
+            using = True
+            hungry = False
+            # Access the critical section
+            asked = False
+            using = True
+            hungry = False
+            # Access the critical section
+            data[0] = int(data[0]) + delta
+            data[1] = int(data[1]) + 1
+            data = str(data[0]) + "\n" + str(data[1])
+            dataFile = open(dataFile, "w")
+            dataFile.write(str(data))
+            dataFile.close()
+            if pending_request:
+                using = False
+                sendToken(logFile, rightNode, pending_request)
+                pending_request=False
+                holder = False
 
 # Socket Executable
-
-def run(sock, maxTime, dataFile, delta, totalCnt, logFileName, rightNode, leftNode, hungry, using, asked, pending_request):
+def run(sock, maxTime, dataFile, delta, totalCnt, logFileName, rightNode, leftNode, hungry, using, asked, pending_request, holder):
     logFile = open(logFileName, "a")
-    # Initialize the data file
-    dataFile = open(dataFile, "a")
-    dataFile.write("0")
-
     logFile.write("Listening on port " + str(sock) + "\n")
     logFile.write("Max time " + str(maxTime) + "\n")
     logFile.write("Log file " + str(logFileName) + "\n")
     counter = 0
-    print("Running")
     sockInstance = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sockInstance.bind(('localhost', sock))
-    sendRequest(logFile, leftNode)
     while True:
-        print("Waiting for data")
-        recieve(sockInstance, maxTime, dataFile, delta, totalCnt, logFile, rightNode, leftNode, hungry, using, asked, pending_request)
+        recieve(sockInstance, maxTime, dataFile, delta, totalCnt, logFile, rightNode, leftNode, hungry, using, asked, pending_request, holder)
         counter = counter + 1
-        print("Counter: " + str(counter))
-        if(counter >= totalCnt):
-            print("Closing socket", sock)
-            sockInstance.close()
-            print("Socket closed")
-            logFile.close()
-            print("Log file closed")
-            dataFile.close()
-            print("Data file closed")
-            break
-
+        
+        tmpCheck = open(dataFile, "r")
+        data = tmpCheck.readlines()
+        print("run data: ",data)
+        print("totalCnt ",totalCnt)
+        tmpCheck.close()
+        if int(data[1]) >= totalCnt:
+            return
 
 # Main Executable
 def main():
 
     # Check for correct number of command line arguments
     if len(sys.argv) != 7:
-        print("Usage: python token.py <host> <port> <host> <port> <host> <port>")
+        print("Usage: python token.py <NP> <DATAFILE> <DELTA> <TOTCOUNT> <LOGFILE> <MAXTIME>")
         sys.exit(1)
 
     # Get the input file name
@@ -120,28 +136,32 @@ def main():
     # Get max time
     maxTime = int(sys.argv[6])
 
-    # Create a TCP/IP socket
-    nodeArray = []
-    socketArray = []
+    # Initialize the log file
+    logFile = open(logFileName, "w")
+    # Clear the log file
+    logFile.write("")
+    logFile.close()
+    # Initialize the data file
+    dataFile = open(inputFileName, "w")
+    dataFile.write("0\n0")
+    dataFile.close()
+    # Create TCP/IP sockets
     for i in range(0, numOfProcess):
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         # Bind the socket to the port
         server_address = ('localhost', 10000 + i)
-        print('starting up on %s port %s' % server_address)
         sock.bind(server_address)
 
         socketArray.append(server_address[1])
-    
-    # Print socket array
-
+    # Create processes
     for i in range(0, numOfProcess):
         if(i==0):
-            nodeArray.append(Process(target=run, args=(socketArray[i], maxTime, inputFileName, delta, exitCount, logFileName, socketArray[i+1],socketArray[numOfProcess - 1], False, True, False, False)))
+            nodeArray.append(Process(target=run, args=(socketArray[i], maxTime, inputFileName, delta, exitCount, logFileName, socketArray[i+1],socketArray[numOfProcess - 1], True, True, False, True, True)))
         elif(i==numOfProcess-1):
-            nodeArray.append(Process(target=run, args=(socketArray[i], maxTime, inputFileName, delta, exitCount, logFileName, socketArray[0], socketArray[i - 1], False, True, False, False)))
+            nodeArray.append(Process(target=run, args=(socketArray[i], maxTime, inputFileName, delta, exitCount, logFileName, socketArray[0], socketArray[i - 1], True, False, False, False, False)))
         else:
-            nodeArray.append(Process(target=run, args=(socketArray[i], maxTime, inputFileName, delta, exitCount, logFileName, socketArray[i+1], socketArray[i - 1], False, True, False, False)))
-
+            nodeArray.append(Process(target=run, args=(socketArray[i], maxTime, inputFileName, delta, exitCount, logFileName, socketArray[i+1], socketArray[i - 1], True, False, False, False, False)))
+    # Start all processes
     for i in range(0, len(nodeArray)):
         nodeArray[i].start()
 

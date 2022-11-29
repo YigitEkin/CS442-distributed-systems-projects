@@ -1,1 +1,15 @@
-Node started at 18:55:32
+Listening on port 10001
+Max time 10
+Log file logfile.txt
+Listening on port 10003
+Max time 10
+Log file logfile.txt
+Listening on port 10004
+Max time 10
+Log file logfile.txt
+Listening on port 10000
+Max time 10
+Log file logfile.txt
+Listening on port 10002
+Max time 10
+Log file logfile.txt
