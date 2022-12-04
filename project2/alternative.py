@@ -22,13 +22,14 @@ def accessResource(dataFileName, logFileName, initialTime, index, totalCnt, upda
     # increment data[0] by delta
     data[0] = (int(data[0]) + delta)
     # increment data[1] by 1
-    data[1] = (int(data[1]) + 1)
+    data[1] = int(data[1]) + 1 if len(data) > 1 else 0
+
 
     # Access the critical section
     # Log file
     logFile = open(logFileName, "a")
     # Time in microseconds
-    lctime = int(round(time.time() * 1000000)) - initialTime
+    lctime = int(round(time.time() * 1000)) - initialTime
     logFile.write("t=" + str(lctime) + ", pid=" + str(index) + ", os-pid=" + str(os.getpid()) + ", new="+ str(data[0])  + ", totalcount=" + str(totalCnt) + ", count=" + str(updateCnt) + "\n")
     data = str(data[0]) + "\n" + str(data[1])
     # Data file
@@ -50,7 +51,7 @@ def dataFileCheck(dataFile, totalCnt):
     df = open(dataFile, "r")
     data = df.readlines()
     # Split the data
-    data = data[1]
+    data = data[1] if len(data) > 1 else 0
     if int(data) >= totalCnt - 1:
         return True
     return False
@@ -155,7 +156,6 @@ def main():
     dataFile.write("0\n0")
     dataFile.close()
     # Initial time in microseconds
-    initialTime = int(round(time.time() * 1000000))
     # Create TCP/IP sockets
     for i in range(0, numOfProcess):
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -164,6 +164,8 @@ def main():
         sock.bind(server_address)
 
         socketArray.append(server_address[1])
+    initialTime = int(round(time.time() * 1000))
+
     # Create processes
     for i in range(0, numOfProcess):
         if(i == 0):
