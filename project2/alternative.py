@@ -95,7 +95,7 @@ def run(sock, maxTime, dataFile, delta, totalCnt, logFileName, leftNode, rightNo
     while updateCnt < totalCnt:
         if dataFileCheck(dataFile, totalCnt):
             break
-        time.sleep(random.uniform(0, maxTime)/1000)
+        time.sleep(random.uniform(0, maxTime)/10)
         if updateCnt >= totalCnt:
             break
         if not holder:
