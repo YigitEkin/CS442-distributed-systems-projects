@@ -42,8 +42,8 @@ def main():
 
         # generate random time
         t = random.expovariate(1.0 / average_time)
-        if t < min_time or t > max_time:
-            t = random.uniform(min_time, max_time)
+        while (t < min_time or t > max_time):
+            t = random.expovariate(1.0 / average_time)
 
         p = Process(target=Process, args=(
             i, number_of_requests, min_time, max_time, average_time))
