@@ -15,7 +15,13 @@ socket_list = []
 def Process():
     pass
 
-# read 5 arguments from command line
+
+# generate ramdom t
+def random_t_generator(average_time, min_time, max_time):
+    t = random.expovariate(1.0 / average_time)
+    while (t < min_time or t > max_time):
+        t = random.expovariate(1.0 / average_time)
+    return t
 
 
 def main():
@@ -23,6 +29,7 @@ def main():
         print("tbc.py NP MINT, MAXT, AVGT, NR")
         sys.exit(1)
     else:
+        # read 5 arguments from command line
         number_of_processes = int(sys.argv[1])
         if number_of_processes < 2 or number_of_processes > 20:
             print("Number of processes must be between 2 and 20")
@@ -40,13 +47,13 @@ def main():
     # create number_of_processes processes
     for i in range(number_of_processes):
 
-        # generate random time
-        t = random.expovariate(1.0 / average_time)
-        while (t < min_time or t > max_time):
-            t = random.expovariate(1.0 / average_time)
-
         p = Process(target=Process, args=(
             i, number_of_requests, min_time, max_time, average_time))
+
+        if p.is_alive():
+            random.seed(p.pid, time.time())
+            random_t_generator(average_time, min_time, max_time)
+
         process_list.append(p)
         p.start()
 
