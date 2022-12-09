@@ -3,6 +3,12 @@ import time
 import os
 import sys
 from multiprocessing import Process
+import socket
+
+process_list = []
+socket_list = []
+
+
 def Process():
     pass
 
@@ -23,5 +29,15 @@ def main():
         print("Max time: ", max_time)
         print("Average time: ", average_time)
         print("Number of requests: ", number_of_requests)
+
+    #create number_of_processes processes
+    for i in range(number_of_processes):
+        p = Process(target=Process, args=(i, number_of_requests, min_time, max_time, average_time))
+        process_list.append(p)
+        p.start()
+        
+    #wait for all processes to finish
+    for p in process_list:
+        p.join()
 
 main()
