@@ -16,7 +16,7 @@ def Process():
     pass
 
 
-# generate ramdom t
+# generate random t
 def random_t_generator(average_time, min_time, max_time):
     t = random.expovariate(1.0 / average_time)
     while (t < min_time or t > max_time):
