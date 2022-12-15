@@ -7,7 +7,6 @@ import socket
 from queue import Queue
 import random
 
-
 process_list = []
 socket_list = []
 
@@ -15,8 +14,9 @@ socket_list = []
 def Process():
     pass
 
-
 # generate ramdom t
+
+
 def random_t_generator(average_time, min_time, max_time):
     t = random.expovariate(1.0 / average_time)
     while (t < min_time or t > max_time):
@@ -35,7 +35,13 @@ def main():
             print("Number of processes must be between 2 and 20")
             return
         min_time = int(sys.argv[2])
+        if min_time < 0:
+            print("Min time must be greater than 0")
+            return
         max_time = int(sys.argv[3])
+        if max_time > 60000:
+            print("Max time must be less than 60000")
+            return
         average_time = int(sys.argv[4])
         number_of_requests = int(sys.argv[5])
         print("Number of processes: ", number_of_processes)
