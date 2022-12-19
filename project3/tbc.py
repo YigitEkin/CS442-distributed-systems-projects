@@ -16,6 +16,7 @@ pidArray = []
 connection = pika.BlockingConnection(
     pika.ConnectionParameters("127.0.0.1", heartbeat=600)
 )
+connection.process_data_events()
 
 channel = connection.channel()
 channel.exchange_declare(exchange="logs", exchange_type="fanout")
@@ -76,9 +77,7 @@ class Process2(Process):
         if message[0] == BRAOADCAST:
             self.timestampArr[self.process_id] += 1
             self.pendingRequest.append((message[0], message[1], self.process_id))
-            print("pendingReqArr beore", self.pendingRequest, self.process_id)
             self.pendingRequest.sort(key=lambda x: x[1])
-            print("pendingReqArr ater", self.pendingRequest, self.process_id)
         else:  # update message
             self.helperBroadcast(message, pid)
 
@@ -111,33 +110,23 @@ class Process2(Process):
                 routing_key=str(pid),
                 body=bytes(encodedPublishItem, "utf-8"),
             )
-        print("Message is sent", message)
-        print("timestampArr in send", self.timestampArr)
 
     def callback(self, ch, method, properties, body):
         # message = (type, self.timestampArr[self.process_id], self.process_id)
         if method.routing_key != str(self.process_id):
             decodedBody = self.decode_msg(body)
-            print("decodedBody", decodedBody)
-            print(self.process_id, " [x] Received", decodedBody)
             self.receivedMessage += self.number_of_processes
             if self.receivedMessage >= self.number_of_processes * (
                 self.number_of_processes - 1
             ):
                 self.receivedMessage = 0
                 # if self.number_of_requests <= self.requestCount - 1:
-                print("body", decodedBody[0])
                 if decodedBody[0] == BRAOADCAST:
                     self.timestampArr[decodedBody[2]] = decodedBody[1]
                     self.pendingRequest.append(
                         (decodedBody[0], decodedBody[1], decodedBody[2])
                     )
                     self.pendingRequest.sort(key=lambda x: x[1])
-                    print(
-                        "------------------------------------",
-                        decodedBody[1],
-                        self.timestampArr[self.process_id],
-                    )
 
                     if decodedBody[1] > self.timestampArr[self.process_id]:
                         self.timestampArr[self.process_id] = decodedBody[1]
@@ -146,19 +135,12 @@ class Process2(Process):
                             self.timestampArr[self.process_id],
                             self.process_id,
                         )
-                        print("timestamp is updated", self.timestampArr)
 
                         self.createConnectionSend(message, self.process_id)
-                        print(
-                            "Update message is sent",
-                            message,
-                            "from",
-                            self.process_id,
-                        )
+
                     else:  # update message
                         self.timestampArr[decodedBody[2]] = decodedBody[1]
 
-                    print("sleeping")
                     time.sleep(
                         random_t_generator(
                             self.average_time,
@@ -180,13 +162,7 @@ class Process2(Process):
                     self.timestampArr[decodedBody[2]] = decodedBody[1]
                 self.requestCount += 1
             if self.requestCount > self.number_of_requests:
-                print(
-                    "Node "
-                    + str(self.process_id)
-                    + " has completed "
-                    + str(self.number_of_processes)
-                    + " requests"
-                )
+
                 connection.close()
                 sys.exit()
 
@@ -203,13 +179,8 @@ class Process2(Process):
         msg = (BRAOADCAST, self.timestampArr[self.process_id], self.process_id)
         self.createConnectionSend(msg, self.process_id)
         # self.requestCount += 1
-        print("Process ", self.process_id, " sent request")
+
         self.createConnectionReceive(self.process_id)
-        print(
-            "Process ",
-            self.process_id,
-            " received request ",
-        )
 
 
 # generate ramdom t
