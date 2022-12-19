@@ -18,7 +18,8 @@ connection = pika.BlockingConnection(
 number_of_processes = 0
 channel = connection.channel()
 channel.exchange_declare(exchange="logs", exchange_type="fanout")
-
+BRAOADCAST = "broadcast"
+UPDATE = "update"
 
 class Process2(Process):
     def __init__(
@@ -38,15 +39,28 @@ class Process2(Process):
         self.average_time = average_time
         self.requestCount = 0
         self.receivedMessage = 0
+        self.pendingRequest = []
+        #create an array of number_of_processes and initilize it to 0
+        self.timestampArr = [0] * number_of_processes
         channel.queue_bind(exchange="logs", queue=str(self.process_id))
         channel.queue_declare(queue=str(self.process_id))
 
-    def createConnectionSend(self, message, pid):
+    def helperBroadcast(self, message, pid):
+        channel.basic_publish(exchange="logs", routing_key=str(pid), body=message)
+
+    def createConnectionSend(self,message, pid):
+        if message[0] == BRAOADCAST:
+            self.timestampArr[self.process_id] += 1
+            self.pendingRequest.append((message, message[3], self.process_id))
+        else: #update message
+            self.helperBroadcast(message, pid)
         channel.basic_publish(exchange="logs", routing_key=str(pid), body=message)
         print("Message is sent", message)
 
     def callback(self, ch, method, properties, body):
-        message = str(self.process_id)
+        if type == BRAOADCAST:
+            pass
+        message = (type, self.timestampArr[self.process_id], self.process_id)
         print(method.routing_key, "aaaaaaaaa")
         if method.routing_key != str(self.process_id):
             print(self.process_id, " [x] Received %r" % body)
@@ -62,7 +76,15 @@ class Process2(Process):
                         + " at time "
                         + str(time.time())
                     )
-                    self.createConnectionSend(message, self.process_id)
+                    if body[0] == BRAOADCAST:
+                        self.timestampArr[body[3]] = body[2] 
+                        self.pendingRequest.append((body, body[2], body[3]))
+                        if body[2] > self.timestampArr[self.process_id]:
+                            self.timestampArr[self.process_id] = body[2]
+                            message = (UPDATE, self.timestampArr[self.process_id], self.process_id)
+                            self.createConnectionSend(message, self.process_id)
+                    else: #update message
+                        self.timestampArr[body[3]] = body[2]
                     time.sleep(self.get_t())
                 self.requestCount += 1
             if self.requestCount > self.number_of_requests:
@@ -84,16 +106,16 @@ class Process2(Process):
         channel.start_consuming()
 
     def run(self):
-        message = str(self.process_id)
-        self.createConnectionSend(message, self.process_id)
-        self.requestCount += 1
-        print("Process ", self.process_id, " sent request ", message)
-        self.createConnectionReceive(self.process_id)
-        print(
-            "Process ",
-            self.process_id,
-            " received request ",
-        )
+        while self.requestCount <= self.number_of_requests:
+            self.createConnectionSend(self.process_id)
+            self.requestCount += 1
+            print("Process ", self.process_id, " sent request")
+            self.createConnectionReceive(self.process_id)
+            print(
+                "Process ",
+                self.process_id,
+                " received request ",
+            )
 
 
 # generate ramdom t
