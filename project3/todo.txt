@@ -1,0 +1,3 @@
+broadcast yapılacak hepsine 
+internal logic
+queue implementation

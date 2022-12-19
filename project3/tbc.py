@@ -12,8 +12,10 @@ import ssl
 processArray = []
 channelArray = []
 pidArray = []
-connection = pika.BlockingConnection(pika.ConnectionParameters("127.0.0.1"))
-# message = "hello"
+connection = pika.BlockingConnection(
+    pika.ConnectionParameters("127.0.0.1", heartbeat=600)
+)
+number_of_processes = 0
 channel = connection.channel()
 channel.exchange_declare(exchange="logs", exchange_type="fanout")
 
@@ -29,29 +31,51 @@ class Process2(Process):
     ):
         Process.__init__(self)
         self.process_id = process_id
+        self.timestampArr = []
         self.number_of_requests = number_of_requests
         self.min_time = min_time
         self.max_time = max_time
         self.average_time = average_time
         self.requestCount = 0
+        self.receivedMessage = 0
+        channel.queue_bind(exchange="logs", queue=str(self.process_id))
+        channel.queue_declare(queue=str(self.process_id))
 
     def createConnectionSend(self, message, pid):
-        channel.queue_declare(queue=str(pid))
-        channel.queue_bind(exchange="logs", queue=str(pid))
         channel.basic_publish(exchange="logs", routing_key=str(pid), body=message)
         print("Message is sent", message)
 
     def callback(self, ch, method, properties, body):
         message = str(self.process_id)
+        print(method.routing_key, "aaaaaaaaa")
         if method.routing_key != str(self.process_id):
-            self.createConnectionSend(message, self.process_id)
-            self.requestCount += 1
-            if self.requestCount == self.number_of_requests:
-                connection.close()
             print(self.process_id, " [x] Received %r" % body)
+            self.receivedMessage += number_of_processes
+            if self.receivedMessage >= number_of_processes * (number_of_processes - 1):
+                self.receivedMessage = 0
+                if self.number_of_requests <= self.requestCount - 1:
+                    print(
+                        "Node "
+                        + str(self.process_id)
+                        + " sending request "
+                        + str(self.number_of_requests)
+                        + " at time "
+                        + str(time.time())
+                    )
+                    self.createConnectionSend(message, self.process_id)
+                    time.sleep(self.get_t())
+                self.requestCount += 1
+            if self.requestCount > self.number_of_requests:
+                print(
+                    "Node "
+                    + str(self.process_id)
+                    + " has completed "
+                    + str(number_of_processes)
+                    + " requests"
+                )
+                connection.close()
 
     def createConnectionReceive(self, queue_name):
-        channel.queue_declare(queue=str(queue_name))
         channel.basic_consume(
             queue=str(queue_name), auto_ack=True, on_message_callback=self.callback
         )
