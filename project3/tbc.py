@@ -8,6 +8,7 @@ from queue import Queue
 import random
 import pika
 import ssl
+import datetime as dt
 
 processArray = []
 channelArray = []
@@ -15,11 +16,12 @@ pidArray = []
 connection = pika.BlockingConnection(
     pika.ConnectionParameters("127.0.0.1", heartbeat=600)
 )
-number_of_processes = 0
+
 channel = connection.channel()
 channel.exchange_declare(exchange="logs", exchange_type="fanout")
 BRAOADCAST = "broadcast"
 UPDATE = "update"
+
 
 class Process2(Process):
     def __init__(
@@ -29,73 +31,164 @@ class Process2(Process):
         min_time,
         max_time,
         average_time,
+        number_of_processes,
     ):
         Process.__init__(self)
         self.process_id = process_id
         self.timestampArr = []
         self.number_of_requests = number_of_requests
+        self.number_of_processes = number_of_processes
         self.min_time = min_time
         self.max_time = max_time
         self.average_time = average_time
         self.requestCount = 0
         self.receivedMessage = 0
         self.pendingRequest = []
-        #create an array of number_of_processes and initilize it to 0
+
+        # create an array of number_of_processes and initilize it to 0
         self.timestampArr = [0] * number_of_processes
         channel.queue_bind(exchange="logs", queue=str(self.process_id))
         channel.queue_declare(queue=str(self.process_id))
 
     def helperBroadcast(self, message, pid):
-        channel.basic_publish(exchange="logs", routing_key=str(pid), body=message)
+        encodedMsg = self.encode_msg(message)
+        channel.basic_publish(
+            exchange="logs", routing_key=str(pid), body=bytes(encodedMsg, "utf-8")
+        )
 
-    def createConnectionSend(self,message, pid):
+    def helperPending(self, timestamp):
+        val = not True
+        for i in range(len(self.pendingRequest)):
+            if self.pendingRequest[i][1] == timestamp:
+                return i
+        return val
+
+    def encode_msg(self, tuple):
+        return "" + tuple[0] + "," + str(tuple[1]) + "," + str(tuple[2])
+
+    def decode_msg(self, message):
+        a, b, c = tuple(message.decode("utf-8").split(","))
+        return (a, int(b), int(c))
+
+    def createConnectionSend(self, message, pid):
+        encodedMsg = self.encode_msg(message)
+
         if message[0] == BRAOADCAST:
             self.timestampArr[self.process_id] += 1
-            self.pendingRequest.append((message, message[3], self.process_id))
-        else: #update message
+            self.pendingRequest.append((message[0], message[1], self.process_id))
+            print("pendingReqArr beore", self.pendingRequest, self.process_id)
+            self.pendingRequest.sort(key=lambda x: x[1])
+            print("pendingReqArr ater", self.pendingRequest, self.process_id)
+        else:  # update message
             self.helperBroadcast(message, pid)
-        channel.basic_publish(exchange="logs", routing_key=str(pid), body=message)
+
+        while len(self.pendingRequest) > 0:
+            publishItem = self.pendingRequest.pop(0)
+            encodedPublishItem = self.encode_msg(publishItem)
+            # open x.txt ile dosyayı açıp içine yazıyoruz
+            with open("x.txt", "a") as f:
+                f.write(
+                    f"pid={str(self.process_id).zfill(2)}, ospid={os.getpid()}, reqid={str(publishItem[2]).zfill(4)}, ts={str(publishItem[1]).zfill(4)}:{str(self.process_id).zfill(2)}, rt={str(dt.datetime.fromtimestamp(time.time())).split( )[1]}\n"
+                )
+            print(
+                "pid=",
+                str(self.process_id).zfill(2),
+                "ospid=",
+                os.getpid(),
+                "reqid=",
+                str(publishItem[2]).zfill(4),
+                "ts=",
+                str(publishItem[1]).zfill(4),
+                ":",
+                str(self.process_id).zfill(2),
+                "rt=",
+                str(dt.datetime.fromtimestamp(time.time())).split()[1],
+                "\n",
+            )
+
+            channel.basic_publish(
+                exchange="logs",
+                routing_key=str(pid),
+                body=bytes(encodedPublishItem, "utf-8"),
+            )
         print("Message is sent", message)
+        print("timestampArr in send", self.timestampArr)
 
     def callback(self, ch, method, properties, body):
-        if type == BRAOADCAST:
-            pass
-        message = (type, self.timestampArr[self.process_id], self.process_id)
-        print(method.routing_key, "aaaaaaaaa")
+        # message = (type, self.timestampArr[self.process_id], self.process_id)
         if method.routing_key != str(self.process_id):
-            print(self.process_id, " [x] Received %r" % body)
-            self.receivedMessage += number_of_processes
-            if self.receivedMessage >= number_of_processes * (number_of_processes - 1):
+            decodedBody = self.decode_msg(body)
+            print("decodedBody", decodedBody)
+            print(self.process_id, " [x] Received", decodedBody)
+            self.receivedMessage += self.number_of_processes
+            if self.receivedMessage >= self.number_of_processes * (
+                self.number_of_processes - 1
+            ):
                 self.receivedMessage = 0
-                if self.number_of_requests <= self.requestCount - 1:
-                    print(
-                        "Node "
-                        + str(self.process_id)
-                        + " sending request "
-                        + str(self.number_of_requests)
-                        + " at time "
-                        + str(time.time())
+                # if self.number_of_requests <= self.requestCount - 1:
+                print("body", decodedBody[0])
+                if decodedBody[0] == BRAOADCAST:
+                    self.timestampArr[decodedBody[2]] = decodedBody[1]
+                    self.pendingRequest.append(
+                        (decodedBody[0], decodedBody[1], decodedBody[2])
                     )
-                    if body[0] == BRAOADCAST:
-                        self.timestampArr[body[3]] = body[2] 
-                        self.pendingRequest.append((body, body[2], body[3]))
-                        if body[2] > self.timestampArr[self.process_id]:
-                            self.timestampArr[self.process_id] = body[2]
-                            message = (UPDATE, self.timestampArr[self.process_id], self.process_id)
-                            self.createConnectionSend(message, self.process_id)
-                    else: #update message
-                        self.timestampArr[body[3]] = body[2]
-                    time.sleep(self.get_t())
+                    self.pendingRequest.sort(key=lambda x: x[1])
+                    print(
+                        "------------------------------------",
+                        decodedBody[1],
+                        self.timestampArr[self.process_id],
+                    )
+
+                    if decodedBody[1] > self.timestampArr[self.process_id]:
+                        self.timestampArr[self.process_id] = decodedBody[1]
+                        message = (
+                            UPDATE,
+                            self.timestampArr[self.process_id],
+                            self.process_id,
+                        )
+                        print("timestamp is updated", self.timestampArr)
+
+                        self.createConnectionSend(message, self.process_id)
+                        print(
+                            "Update message is sent",
+                            message,
+                            "from",
+                            self.process_id,
+                        )
+                    else:  # update message
+                        self.timestampArr[decodedBody[2]] = decodedBody[1]
+
+                    print("sleeping")
+                    time.sleep(
+                        random_t_generator(
+                            self.average_time,
+                            self.min_time / 1000,
+                            self.max_time / 1000,
+                        )
+                    )
+
+                    self.timestampArr[self.process_id] += 1
+                    msg = (
+                        BRAOADCAST,
+                        self.timestampArr[self.process_id],
+                        self.process_id,
+                    )
+
+                    self.createConnectionSend(msg, self.process_id)
+
+                else:
+                    self.timestampArr[decodedBody[2]] = decodedBody[1]
                 self.requestCount += 1
             if self.requestCount > self.number_of_requests:
                 print(
                     "Node "
                     + str(self.process_id)
                     + " has completed "
-                    + str(number_of_processes)
+                    + str(self.number_of_processes)
                     + " requests"
                 )
                 connection.close()
+                sys.exit()
 
     def createConnectionReceive(self, queue_name):
         channel.basic_consume(
@@ -106,16 +199,17 @@ class Process2(Process):
         channel.start_consuming()
 
     def run(self):
-        while self.requestCount <= self.number_of_requests:
-            self.createConnectionSend(self.process_id)
-            self.requestCount += 1
-            print("Process ", self.process_id, " sent request")
-            self.createConnectionReceive(self.process_id)
-            print(
-                "Process ",
-                self.process_id,
-                " received request ",
-            )
+        self.timestampArr[self.process_id] += 1
+        msg = (BRAOADCAST, self.timestampArr[self.process_id], self.process_id)
+        self.createConnectionSend(msg, self.process_id)
+        # self.requestCount += 1
+        print("Process ", self.process_id, " sent request")
+        self.createConnectionReceive(self.process_id)
+        print(
+            "Process ",
+            self.process_id,
+            " received request ",
+        )
 
 
 # generate ramdom t
@@ -133,6 +227,7 @@ def main():
         sys.exit(1)
     else:
         # read 5 arguments from command line
+        global number_of_processes
         number_of_processes = int(sys.argv[1])
         if number_of_processes < 2 or number_of_processes > 20:
             print("Number of processes must be between 2 and 20")
@@ -162,6 +257,7 @@ def main():
             min_time,
             max_time,
             average_time,
+            number_of_processes,
         )
 
         random.seed(p.pid, time.time())
@@ -175,4 +271,5 @@ def main():
 
 
 if __name__ == "__main__":
+    f = open("x.txt", "w")
     main()
