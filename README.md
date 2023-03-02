@@ -1,19 +1,15 @@
-# distributed-projects
+# CS442 Distributed Systems and Algorithms Course Projects
 
+Welcome to my repository for CS442 Distributed Systems and Algorithms course projects. This repository contains three different projects that I worked on during the course.
 
-For Part A we used a Ubuntu 22.04LTS VM as the development environment. 
-You need to follow the command below to compile (in partA directory):
+## Project 1: Interprocess Communication with RPCGen and redis
 
-~ make
+The first project is about interprocess communication using RPCGen and redis. In part 1, two processes communicate with each other where the client sends an array to the server. The server calculates the variance, average, standard deviation, maximum, and minimum of the array and sends this data back to the client. The client then prints this information to the console. In part 2, two processes send an hello world string to each other using redis and python.
 
-Then you can run the executables.
+## Project 2: Token Passing Mutual Exclusion Algorithm
 
- 
-For Part B, we used MacOS Monterey 12.6.
-You need to follow the following commands (in partB directory):
+The second project is about token passing mutual exclusion algorithm. Multiple node classes want to access a shared source txt file and with token passing algorithm, they are synchronized tox be able to use the resource without any loss of data. UDP sockets are used for passing token.
 
-~ python3 -m venv ./venv
-~ source ./venv/bin/activate
-~ python3 -m pip install -r requirements.txt
+## Project 3: Totally Ordered Broadcast Global Clock Implementation
 
-~ python3 client.py
+The third project is about totally ordered broadcast global clock implementation. With this algorithm, each process has achieved to be in the same vector clock. This way, their clocks are all on the same page.
